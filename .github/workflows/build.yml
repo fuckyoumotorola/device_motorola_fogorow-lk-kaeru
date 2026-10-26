@@ -1,0 +1,97 @@
+name: Build fogorow
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Compilar con logging verbose (KAERU_DEBUG=1)"
+        type: boolean
+        default: false
+      lk_url:
+        description: "(Opcional) URL directa a la imagen LK stock para generar fogorow-kaeru.bin"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    env:
+      DEVICE: fogorow
+      CROSS_COMPILE: arm-linux-gnueabihf-
+      KAERU_DEBUG: ${{ inputs.debug && '1' || '0' }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          build-essential \
+          gcc-arm-linux-gnueabihf \
+          binutils-arm-linux-gnueabihf \
+          python3 python3-pip git
+        arm-linux-gnueabihf-gcc --version
+
+    - name: Set build ID
+      run: echo "KAERU_GIT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+    # No usamos .github/build-all.sh: termina con `make distclean`, que borra
+    # los binarios `kaeru` y `stageone` justo después de compilarlos.
+    - name: Configure (${{ env.DEVICE }}_defconfig)
+      run: |
+        make distclean || true
+        make "${DEVICE}_defconfig"
+
+    - name: Build kaeru + stage1
+      run: make -j"$(nproc)" V=1
+
+    - name: Verify outputs
+      run: |
+        for f in kaeru stageone; do
+          if [ ! -s "$f" ]; then
+            echo "::error title=Missing output::$f no se generó o está vacío"
+            exit 1
+          fi
+        done
+        ls -l kaeru stageone
+        sha256sum kaeru stageone | tee SHA256SUMS
+
+    - name: Upload payloads
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.DEVICE }}-kaeru-${{ env.KAERU_GIT_SHA }}
+        path: |
+          kaeru
+          stageone
+          SHA256SUMS
+          .config
+        if-no-files-found: error
+
+    # Paso opcional: parchear una LK stock (solo con workflow_dispatch + lk_url)
+    - name: Patch stock LK image
+      if: ${{ inputs.lk_url != '' }}
+      run: |
+        python3 -m pip install --break-system-packages -r utils/requirements.txt
+        curl -fL --retry 3 -o lk.img "${{ inputs.lk_url }}"
+        python3 utils/patch.py "configs/motorola/${DEVICE}_defconfig" lk.img kaeru \
+          -l stageone -o "${DEVICE}-kaeru.bin"
+
+    - name: Upload patched image
+      if: ${{ inputs.lk_url != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.DEVICE }}-kaeru-patched-${{ env.KAERU_GIT_SHA }}
+        path: ${{ env.DEVICE }}-kaeru.bin
+        if-no-files-found: error

@@ -1,0 +1,21 @@
+menu "SoC Support"
+
+config MEDIATEK_MT6768
+    bool "MediaTek MT6768 SoC"
+    default y
+    help
+      SoC used by the Motorola G24 (fogorow).
+
+config SECURITY_AO_BASE
+    hex "Security Always-On base address"
+    default 0x1001A000
+
+config UART_BASE
+    hex "UART base address"
+    default 0x11002000
+
+config WDT_BASE
+    hex "Watchdog timer base address"
+    default 0x10007000
+
+endmenu

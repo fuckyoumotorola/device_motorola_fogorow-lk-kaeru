@@ -1,0 +1,5 @@
+config MOTOROLA_FOGOROW
+    bool "Support Motorola G24"
+    default n
+    help
+      Say Y if you want to include support for Motorola G24

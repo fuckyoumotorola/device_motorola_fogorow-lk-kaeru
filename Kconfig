@@ -1,0 +1,7 @@
+mainmenu "Kaeru Configuration"
+
+source "arch/Kconfig"
+source "soc/Kconfig"
+source "board/Kconfig"
+source "lib/Kconfig"
+source "stage1/Kconfig"

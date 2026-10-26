@@ -1,0 +1,191 @@
+menu "Fastboot Support"
+    menu "Fastboot Function Addresses"
+        config FASTBOOT_FAIL_ADDRESS
+            hex "fastboot_fail() address"
+
+        config FASTBOOT_INFO_ADDRESS
+            hex "fastboot_info() address"
+
+        config FASTBOOT_OKAY_ADDRESS
+            hex "fastboot_okay() address"
+
+        config FASTBOOT_PUBLISH_ADDRESS
+            hex "fastboot_publish() address"
+
+        config FASTBOOT_REGISTER_ADDRESS
+            hex "fastboot_register() address"
+    endmenu
+
+    config FASTBOOT_HELP_COMMAND
+        def_bool FASTBOOT_CMDLIST_ADDRESS != 0x0
+
+    config FASTBOOT_CMDLIST_ADDRESS
+        hex "fastboot command list address"
+        default 0x0
+        help
+          Address of the global that fastboot_register() pushes each
+          registration onto, i.e. the head pointer of the bootloader's
+          fastboot command list.
+
+          Set it to enable 'fastboot oem help', which walks that list and
+          reports every oem command the bootloader answers to. Leave it at
+          0 if you have not located the global on your target.
+
+    config FASTBOOT_MEM_COMMAND
+        bool "Enable 'fastboot oem mem'"
+        default y
+        help
+          Say Y to register 'oem mem read <addr> [len]', which hexdumps
+          memory over fastboot, and 'oem mem write <addr> <value>', which
+          pokes a word into it.
+
+          Boards that want names as well as hex addresses can provide
+          mem_region_find() to resolve them.
+endmenu
+
+menu "Environment Support"
+    config ENVIRONMENT_SUPPORT
+        bool "Enable environment support"
+        default n
+        help
+          Say Y to enable get_env/set_env wrappers.
+          Required for features like bootloader lock spoofing.
+
+    if ENVIRONMENT_SUPPORT
+        config GET_ENV_ADDRESS
+            hex "get_env() address"
+            help
+              Address of the get_env() function in the bootloader
+
+        config SET_ENV_ADDRESS
+            hex "set_env() address"
+            help
+              Address of the set_env() function in the bootloader
+    endif
+endmenu
+
+menu "Spoof Support"
+    config SPOOF_SUPPORT
+        bool "Enable bootloader lock state spoofing"
+        default n
+        depends on ENVIRONMENT_SUPPORT
+        help
+          Common library for bootloader lock state spoofing.
+          Requires environment support to be enabled.
+endmenu
+
+menu "Recovery Support"
+    config RECOVERY_CMDLINE_PATCH
+        bool "Patch the kernel cmdline on recovery boot"
+        default n
+        depends on SPOOF_SUPPORT
+        help
+          Say Y to set androidboot.verifiedbootstate to orange when booting
+          into recovery. Without this, adbd and fastbootd see the spoofed
+          locked state, so adb access and flashing are both refused.
+
+    if RECOVERY_CMDLINE_PATCH
+        config RECOVERY_CMDLINE1_ADDRESS
+            hex "First cmdline buffer address"
+            help
+              Address of the kernel cmdline buffer in the bootloader
+
+        config RECOVERY_CMDLINE2_ADDRESS
+            hex "Second cmdline buffer address"
+            default 0x0
+            help
+              Address of the second cmdline buffer, if the image has one.
+              Leave at 0 otherwise.
+    endif
+endmenu
+
+menu "Storage Support"
+    config STORAGE_SUPPORT
+        bool "Enable storage support"
+        default n
+        help
+          Support for reading and writing to storage.
+
+    config MT_PART_GET_DEVICE_ADDRESS
+        hex "mt_part_get_device() address"
+        depends on STORAGE_SUPPORT
+endmenu
+
+menu "Memory and Address Mapping"
+    menu "Bootloader Configuration"
+        config BOOTLOADER_BASE
+            hex "LK load address"
+            help
+              Base address where the LK bootloader is loaded in memory
+
+        config BOOTLOADER_SIZE
+            hex "LK size"
+            help
+              Size of the LK bootloader in memory
+
+        config BOOTMODE_ADDRESS
+            hex "Bootmode address"
+            help
+              Address where boot mode information is stored
+    endmenu
+
+    menu "Platform Function Addresses"
+        config PLATFORM_INIT_CALLER
+            hex "platform_init()'s caller address"
+            help
+              Address of the function that calls platform_init()
+
+        config PLATFORM_INIT_ADDRESS
+            hex "platform_init() address"
+            help
+              Address of the platform_init() function
+
+        config APP_ADDRESS
+            hex "app() address"
+            help
+              Address of the app() function
+
+        config MTK_DETECT_KEY_ADDRESS
+            hex "mtk_detect_key() address"
+            default 0x0
+            help
+              Address of the mtk_detect_key() function for key detection
+
+        config VIDEO_PRINTF_ADDRESS
+            hex "video_printf() address"
+            help
+              Address of the video_printf() function for display output
+    endmenu
+endmenu
+
+menu "Logging Options"
+    config LK_LOG_STORE
+        bool "Enable LK Log Store"
+        default y
+        help
+          Say Y to enable additional log storage mechanism.
+          This allows accessing bootloader logs from the running system.
+
+    config LK_LOG_STORE_ADDRESS
+        hex "LK Log Store Address"
+        depends on LK_LOG_STORE
+        help
+          Address of the lk_log_store() function in the bootloader
+endmenu
+
+menu "Image Patching"
+    config LK_SIGNATURE_SIZE
+        hex "Size of the signature appended to the LK image"
+        default 0x0
+        help
+          Size of the signature some vendors append to the LK image. It
+          counts towards the partition's data_size, so the image ends this
+          many bytes earlier. Leave at 0 if there is none.
+
+    config LK_PART_HDR_NAME
+        string "Change the partition name of LK in the image header"
+        default ""
+        help
+          If set, name of LK in the image header will be changed to the
+          specified value.
+endmenu

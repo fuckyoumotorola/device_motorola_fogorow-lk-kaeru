@@ -1,0 +1,34 @@
+//
+// SPDX-FileCopyrightText: 2025 Roger Ortiz <roger@r0rt1z2.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+
+#pragma once
+
+#include <arch/arm.h>
+#include <lib/app.h>
+#include <lib/bootargs.h>
+#include <lib/bootimg.h>
+#include <lib/bootmode.h>
+#include <lib/common.h>
+#include <lib/debug.h>
+#include <lib/fastboot.h>
+#include <lib/mt_part.h>
+#include <lib/security/seccfg.h>
+#include <lib/recovery.h>
+#include <lib/string.h>
+
+#ifdef CONFIG_ENVIRONMENT_SUPPORT
+#include <lib/environment.h>
+#endif
+
+#ifdef CONFIG_SPOOF_SUPPORT
+#include <lib/spoof.h>
+#endif
+
+#ifdef CONFIG_STORAGE_SUPPORT
+#include <lib/storage.h>
+#endif
+
+void board_early_init(void);
+void board_late_init(void);

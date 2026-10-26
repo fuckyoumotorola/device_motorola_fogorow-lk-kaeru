@@ -1,0 +1,68 @@
+//
+// SPDX-FileCopyrightText: 2025-2026 Roger Ortiz <roger@r0rt1z2.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+
+#include <arch/arm.h>
+#include <lib/common.h>
+#include <lib/debug.h>
+#include <lib/fastboot.h>
+
+#include <wdt/mtk_wdt.h>
+#include <usbdl/mtk_usbdl.h>
+
+void reboot_emergency(void) {
+    mtk_reboot_emergency();
+}
+
+bool mtk_detect_key(unsigned short key) {
+#if defined(CONFIG_MTK_DETECT_KEY_ADDRESS) && CONFIG_MTK_DETECT_KEY_ADDRESS
+    return ((bool (*)(unsigned short))(CONFIG_MTK_DETECT_KEY_ADDRESS | 1))(key);
+#else
+    (void)key;
+    return false;
+#endif
+}
+
+void print_kaeru_info(int (*out)(const char *, ...)) {
+#ifndef CONFIG_EXCLUDE_BRANDING
+    unsigned int sp, lr, vbar;
+
+    READ_SP(sp);
+    READ_LR(lr);
+    READ_VBAR(vbar);
+
+    out(" _                         \n"
+        "| | ____ _  ___ _ __ _   _ \n"
+        "| |/ / _` |/ _ \\ '__| | | |\n"
+        "|   < (_| |  __/ |  | |_| |\n"
+        "|_|\\_\\__,_|\\___|_|   \\__,_| v%s (%s)\n\n",
+        KAERU_VERSION, ARM_MODE(lr));
+    out("********************************************************************\n");
+    out(" Copyright (C) 2023-2026 KAERU Labs, S.L.\n");
+    out(" SPDX-License-Identifier: AGPL-3.0-or-later\n\n");
+    out(" Developed by Roger Ortiz <roger@r0rt1z2.com>\n");
+    out("              Mateo De la Hoz <me@antiengineer.com>\n");
+    out("              Shomy <git@itssho.my>\n\n");
+    out(" !!! WARNING !!!\n");
+    out(" THIS IS A FREE TOOL. IF YOU PAID FOR IT, YOU HAVE BEEN SCAMMED.\n");
+    out(" THIS TOOL IS PROVIDED AS-IS WITHOUT WARRANTY OF ANY KIND.\n");
+    out(" USE AT YOUR OWN RISK.\n\n");
+    out(" Vector Base  (VBAR): 0x%08x\n", vbar);
+    out(" Stack Pointer  (SP): 0x%08x\n", sp);
+    out(" Link Register  (LR): 0x%08x\n", lr);
+    out("********************************************************************\n\n");
+#else
+    (void)out;
+#endif
+}
+
+void __attribute__((weak)) common_early_init(void) {
+#ifndef CONFIG_EXCLUDE_BRANDING
+    fastboot_publish("kaeru-version", KAERU_VERSION);
+#else
+#warning "Branding is excluded, you are not allowed to share copies of this image."
+#endif
+
+    fastboot_register_commands();
+}

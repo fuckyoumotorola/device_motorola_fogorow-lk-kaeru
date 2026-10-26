@@ -1,0 +1,94 @@
+//
+// SPDX-FileCopyrightText: 2025 Roger Ortiz <roger@r0rt1z2.com>
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+
+#include <stdarg.h>
+
+#define NANOPRINTF_IMPLEMENTATION
+
+#include <lib/debug.h>
+#include <lib/string.h>
+
+#include <uart/mtk_uart.h>
+
+void uart_putc(int c, void* ctx) {
+    (void)ctx;
+    
+    if (c == '\n')
+        mtk_uart_putc('\r');
+    
+    mtk_uart_putc(c);
+}
+
+#ifdef CONFIG_LK_LOG_STORE
+void lk_log_store(int c, void* ctx) {
+    (void)ctx;
+    ((void (*)(int))(CONFIG_LK_LOG_STORE_ADDRESS | 1))(c);
+}
+#endif
+
+int printf(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    int ret = npf_vpprintf(&uart_putc, NULL, fmt, args);
+
+#ifdef CONFIG_LK_LOG_STORE
+    va_start(args, fmt);
+    npf_vpprintf(&lk_log_store, NULL, fmt, args);
+#endif
+
+    va_end(args);
+    return ret;
+}
+
+int video_printf(const char* fmt, ...) {
+    char buf[256];
+    va_list args;
+    va_start(args, fmt);
+
+    // We can't hand our va_list to LK, so format here and only pass
+    // it the result. Forwarding fmt alone loses every argument past
+    // the second one.
+    int ret = npf_vsnprintf(buf, sizeof(buf), fmt, args);
+
+    va_end(args);
+
+    ((void (*)(const char*, ...))(CONFIG_VIDEO_PRINTF_ADDRESS | 1))("%s", buf);
+    return ret;
+}
+
+void hexdump(const void* data, size_t size, int (*out)(const char *, ...)) {
+    const uint8_t* ptr = (const uint8_t*)data;
+
+    for (size_t i = 0; i < size; i += 16) {
+        out("%08x: ", (uintptr_t)(ptr + i));
+
+        for (size_t j = 0; j < 16; j++) {
+            if (i + j < size)
+                out("%02x ", ptr[i + j]);
+            else
+                out("   ");
+            if (j == 7)
+                out(" ");
+        }
+
+        out(" |");
+        for (size_t j = 0; j < 16; j++) {
+            if (i + j < size) {
+                uint8_t c = ptr[i + j];
+                out("%c", (c >= 32 && c < 127) ? c : '.');
+            }
+        }
+        out("|\n");
+    }
+}
+
+void uart_hexdump(const void* data, size_t size) {
+    hexdump(data, size, printf);
+}
+
+void video_hexdump(const void* data, size_t size) {
+    hexdump(data, size, video_printf);
+}
