@@ -11,10 +11,6 @@ on:
         description: "Compilar con logging verbose (KAERU_DEBUG=1)"
         type: boolean
         default: false
-      lk_url:
-        description: "(Opcional) URL directa a la imagen LK stock para generar fogorow-kaeru.bin"
-        type: string
-        required: false
 
 permissions:
   contents: read
@@ -27,6 +23,7 @@ jobs:
       DEVICE: fogorow
       CROSS_COMPILE: arm-linux-gnueabihf-
       KAERU_DEBUG: ${{ inputs.debug && '1' || '0' }}
+      LK_IMG: ./lk/lk.img
 
     steps:
     - name: Checkout
@@ -79,17 +76,27 @@ jobs:
           .config
         if-no-files-found: error
 
-    # Paso opcional: parchear una LK stock (solo con workflow_dispatch + lk_url)
+    # Parchea la LK stock incluida en el repo (./lk/lk.img), si existe
+    - name: Check for stock LK image
+      id: lk
+      run: |
+        if [ -s "${LK_IMG}" ]; then
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          ls -l "${LK_IMG}"
+        else
+          echo "present=false" >> "$GITHUB_OUTPUT"
+          echo "::notice title=LK omitida::No se encontró ${LK_IMG}, se omite el parcheo"
+        fi
+
     - name: Patch stock LK image
-      if: ${{ inputs.lk_url != '' }}
+      if: steps.lk.outputs.present == 'true'
       run: |
         python3 -m pip install --break-system-packages -r utils/requirements.txt
-        curl -fL --retry 3 -o lk.img "${{ inputs.lk_url }}"
-        python3 utils/patch.py "configs/motorola/${DEVICE}_defconfig" lk.img kaeru \
+        python3 utils/patch.py "configs/motorola/${DEVICE}_defconfig" "${LK_IMG}" kaeru \
           -l stageone -o "${DEVICE}-kaeru.bin"
 
     - name: Upload patched image
-      if: ${{ inputs.lk_url != '' }}
+      if: steps.lk.outputs.present == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.DEVICE }}-kaeru-patched-${{ env.KAERU_GIT_SHA }}
