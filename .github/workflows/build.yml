@@ -38,6 +38,7 @@ jobs:
           build-essential \
           gcc-arm-linux-gnueabihf \
           binutils-arm-linux-gnueabihf \
+          libc6-dev-armhf-cross \
           python3 python3-pip git
         arm-linux-gnueabihf-gcc --version
 
