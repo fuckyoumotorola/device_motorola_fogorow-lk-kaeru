@@ -215,8 +215,6 @@ void board_early_init(void) {
     fastboot_register("flash:", cmd_flash, 1);
     fastboot_register("erase:", cmd_erase, 1);
     fastboot_publish("brom-usbdl-disabled", is_brom_cmd_disabled() == 1 ? "yes" : "no");
-    
-    mt_disp_show_boot_logo();
 }
 
 void board_late_init(void) {
